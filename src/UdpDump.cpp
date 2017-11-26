@@ -120,7 +120,7 @@ void packet_handler_udpdump(u_char *param, const struct pcap_pkthdr *header, con
 {
 	struct tm *ltime;
 	char timestr[16];
-	ip_header *ih;
+	sniff_ip *ih;
 	udp_header *uh;
 	u_int ip_len;
 	u_short sport,dport;
@@ -140,11 +140,11 @@ void packet_handler_udpdump(u_char *param, const struct pcap_pkthdr *header, con
 	printf("%s.%.6d len:%d ", timestr, header->ts.tv_usec, header->len);
 
 	/* retireve the position of the ip header */
-	ih = (ip_header *) (pkt_data +
+	ih = (sniff_ip *) (pkt_data +
 		14); //length of ethernet header
 
 	/* retireve the position of the udp header */
-	ip_len = (ih->ver_ihl & 0xf) * 4;
+	ip_len = (ih->ip_vhl & 0xf) * 4;
 	uh = (udp_header *) ((u_char*)ih + ip_len);
 
 	/* convert from network byte order to host byte order */
@@ -153,14 +153,14 @@ void packet_handler_udpdump(u_char *param, const struct pcap_pkthdr *header, con
 
 	/* print ip addresses and udp ports */
 	printf("%d.%d.%d.%d.%d -> %d.%d.%d.%d.%d\n",
-		ih->saddr.byte1,
-		ih->saddr.byte2,
-		ih->saddr.byte3,
-		ih->saddr.byte4,
+		ih->ip_src.S_un.S_un_b.s_b1,
+		ih->ip_src.S_un.S_un_b.s_b2,
+		ih->ip_src.S_un.S_un_b.s_b3,
+		ih->ip_src.S_un.S_un_b.s_b4,
 		sport,
-		ih->daddr.byte1,
-		ih->daddr.byte2,
-		ih->daddr.byte3,
-		ih->daddr.byte4,
+		ih->ip_dst.S_un.S_un_b.s_b1,
+		ih->ip_dst.S_un.S_un_b.s_b2,
+		ih->ip_dst.S_un.S_un_b.s_b3,
+		ih->ip_dst.S_un.S_un_b.s_b4,
 		dport);
 }

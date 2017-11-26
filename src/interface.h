@@ -65,7 +65,7 @@ extern char *strsep(char **, const char *);
 
 extern char *program_name;	/* used to generate self-identifying messages */
 
-#include <pcap.h>
+#include "pcap.h"
 
 #ifndef HAVE_BPF_DUMP
 struct bpf_program;

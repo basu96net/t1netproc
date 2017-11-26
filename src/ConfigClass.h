@@ -14,10 +14,11 @@ public:
 	static int MaximumSnapLengthPerPacket;
 	static bool ExitOnNonEthernetInterface;
 	static bool UseCompiledFilter;
+	static bool PrintTcpPayload;
 };
 
 extern ConfigsClass configs;
 
-#define USE_ETH_DATALINK_FILTER (FALSE)
+//#define USE_ETH_DATALINK_FILTER (FALSE)
 
 #endif /* CONFIGCLASS_H_ */

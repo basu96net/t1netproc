@@ -3,6 +3,10 @@
 #include <time.h>
 #include <strings.h>
 
+#include <iostream>
+#include <string>
+#include <map>
+
 #include "winsock2.h"
 
 #include "interface.h"

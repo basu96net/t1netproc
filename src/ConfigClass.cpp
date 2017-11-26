@@ -14,3 +14,4 @@ int ConfigsClass::CaptureLoopQueue = 0;
 int ConfigsClass::MaximumSnapLengthPerPacket=1518;
 bool ConfigsClass::ExitOnNonEthernetInterface = false;
 bool ConfigsClass::UseCompiledFilter = true;
+bool ConfigsClass::PrintTcpPayload = false;
