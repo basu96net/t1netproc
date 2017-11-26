@@ -1,0 +1,16 @@
+eclipse.preferences.version=1
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/CPATH/delimiter=;
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/CPATH/operation=remove
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/CPLUS_INCLUDE_PATH/delimiter=;
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/CPLUS_INCLUDE_PATH/operation=replace
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/CPLUS_INCLUDE_PATH/value=F\:\\tools\\dev\\sdk\\WpdPack\\Include
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/C_INCLUDE_PATH/delimiter=;
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/C_INCLUDE_PATH/operation=replace
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/C_INCLUDE_PATH/value=F\:\\tools\\dev\\sdk\\WpdPack\\Include
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/append=true
+environment/buildEnvironmentInclude/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/appendContributed=true
+environment/buildEnvironmentLibrary/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/LIBRARY_PATH/delimiter=;
+environment/buildEnvironmentLibrary/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/LIBRARY_PATH/operation=replace
+environment/buildEnvironmentLibrary/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/LIBRARY_PATH/value=F\:\\tools\\dev\\MinGW\\lib;F\:\\tools\\dev\\sdk\\WpdPack\\Lib
+environment/buildEnvironmentLibrary/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/append=true
+environment/buildEnvironmentLibrary/cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781/appendContributed=true
