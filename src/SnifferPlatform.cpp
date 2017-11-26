@@ -1,66 +1,36 @@
+#include "SnifferPlatform.h"
 
+SnifferPlatform *  pPlt;
 
-#include "stdinclude.h"
+int mainSniffex(int argc, char** argv){
 
-#include <ctype.h>
-#include <errno.h>
-#include <sys/types.h>
-
-#include "DataStructs.h"
-
-typedef struct sniff_tcp {
-        u_short th_sport;               /* source port */
-        u_short th_dport;               /* destination port */
-        tcp_seq th_seq;                 /* sequence number */
-        tcp_seq th_ack;                 /* acknowledgement number */
-        //u_char  th_offx2;               /* data offset, rsvd */
-
-
-        u_char ns :1; //Nonce Sum Flag Added in RFC 3540.
-        u_char reserved_part1:3; //according to rfc
-        u_char th_offx2:4; /*The number of 32-bit words in the TCP header.
-
-        This indicates where the data begins.
-        The length of the TCP header is always a multiple
-        of 32 bits.*/
-#define TH_OFF(th)      (((th)->th_offx2 & 0x0f))
-    u_char  th_flags;
-    #define TH_FIN  0x01
-    #define TH_SYN  0x02
-    #define TH_RST  0x04
-    #define TH_PUSH 0x08
-    #define TH_ACK  0x10
-    #define TH_URG  0x20
-    #define TH_ECE  0x40
-    #define TH_CWR  0x80
-    #define TH_FLAGS        (TH_FIN|TH_SYN|TH_RST|TH_ACK|TH_URG|TH_ECE|TH_CWR)
-
-        tcp_flags flags;
-        u_short th_win;                 /* window */
-        u_short th_sum;                 /* checksum */
-        u_short th_urp;                 /* urgent pointer */
-}sniff_tcp;
-
+	SnifferPlatform plt;
+	pPlt = &plt;
+	return plt.mainSniffex(argc , argv);
+}
 void
-UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
+UpdateConnectionTableCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
+ pPlt->UpdateConnectionTable(args, header, packet);
+}
 
-void
-print_payload(const u_char *payload, int len);
 
-void
-print_hex_ascii_line(const u_char *payload, int len, int offset);
-
-void
-print_app_banner(void);
-
-void
-print_app_usage(void);
+//void
+//print_payload(const u_char *payload, int len);
+//
+//void
+//print_hex_ascii_line(const u_char *payload, int len, int offset);
+//
+//void
+//print_app_banner(void);
+//
+//void
+//print_app_usage(void);
 
 /*
  * app name/banner
  */
 void
-print_app_banner(void)
+SnifferPlatform::print_app_banner(void)
 {
 
 //	printf("%s - %s\n", APP_NAME, APP_DESC);
@@ -75,7 +45,7 @@ return;
  * print help text
  */
 void
-print_app_usage(void)
+SnifferPlatform::print_app_usage(void)
 {
 
 	//printf("Usage: %s [interface]\n", APP_NAME);
@@ -93,7 +63,7 @@ return;
  * 00000   47 45 54 20 2f 20 48 54  54 50 2f 31 2e 31 0d 0a   GET / HTTP/1.1..
  */
 void
-print_hex_ascii_line(const u_char *payload, int len, int offset)
+SnifferPlatform::print_hex_ascii_line(const u_char *payload, int len, int offset)
 {
 
 	int i;
@@ -144,7 +114,7 @@ return;
  * print packet payload data (avoid printing binary data)
  */
 void
-print_payload(const u_char *payload, int len)
+SnifferPlatform::print_payload(const u_char *payload, int len)
 {
 
 	int len_rem = len;
@@ -185,11 +155,12 @@ print_payload(const u_char *payload, int len)
 return;
 }
 
+
 /*
  * dissect/print packet
  */
 void
-UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
+SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
 
 	static int count = 1;                   /* packet counter */
@@ -285,7 +256,8 @@ return;
 //extern "C"{
 //int mainSniffex(int argc, char* argv[]);
 //}
-int mainSniffex(int argc, char** argv)
+
+int SnifferPlatform::mainSniffex(int argc, char** argv)
 {
 
 	char *devName = NULL;			/* capture device name */
@@ -413,7 +385,7 @@ int mainSniffex(int argc, char** argv)
 		}
 	}
 	/* now we can set our callback function */
-	pcap_loop(handle, num_packets, UpdateConnectionTable, NULL);
+	pcap_loop(handle, num_packets, UpdateConnectionTableCallback, NULL);
 
 	/* cleanup */
 	pcap_freecode(&fp);
@@ -423,4 +395,5 @@ int mainSniffex(int argc, char** argv)
 
 return 0;
 }
+
 //}
