@@ -2,7 +2,7 @@
 
 SnifferPlatform *  pPlt;
 
-int mainSniffex(int argc, char** argv){
+int TcpRecognizer(int argc, char** argv){
 
 	SnifferPlatform plt;
 	pPlt = &plt;
@@ -193,45 +193,20 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	char* srcAddr = inet_ntoa(ip->ip_src);
 	char* dstAddr = inet_ntoa(ip->ip_dst);
 
-	printf("       From: %s\n", srcAddr);
-	printf("         To: %s\n",dstAddr);
+	if (IPPROTO_TCP != ip->ip_p )
+		return;
 
-	/* determine protocol */
-	switch(ip->ip_p) {
-		case IPPROTO_TCP:
-			printf("   Protocol: TCP\n");
-			break;
-		case IPPROTO_UDP:
-			printf("   Protocol: UDP\n");
-			return;
-		case IPPROTO_ICMP:
-			printf("   Protocol: ICMP\n");
-			return;
-		case IPPROTO_IP:
-			printf("   Protocol: IP\n");
-			return;
-		default:
-			printf("   Protocol: unknown\n");
-			return;
-	}
-
-	/*
-	 *  OK, this packet is TCP.
-	 */
-
-	/* define/compute tcp header offset */
 	tcp = (struct sniff_tcp*)(packet + SIZE_ETHERNET + size_ip);
+
 	size_tcp = TH_OFF(tcp)*4;
+
 	if (size_tcp < 20) {
-		printf("   * Invalid TCP header length: %u bytes\n", size_tcp);
 		return;
 	}
 
 	u_short srcPort = ntohs(tcp->th_sport);
 	u_short dstPort = ntohs(tcp->th_dport);
 
-	printf("   Src port: %d\n", srcPort);
-	printf("   Dst port: %d\n", dstPort);
 
 	/* define/compute tcp payload (segment) offset */
 	payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
@@ -239,23 +214,16 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	/* compute tcp payload (segment) size */
 	size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
 
-	std::string srcEp;
-	std::string dstEp;
+	std::stringstream srcEpStream;
+	std::stringstream dstEpStream;
 
-	srcEp+= srcAddr;
-	srcEp+=":";
-	srcEp+= srcPort;
+	srcEpStream << srcAddr << ":" << srcPort;
 
-
-	dstEp+= dstAddr;
-	dstEp+=":";
-	dstEp+= dstPort;
+	dstEpStream << dstAddr << ":" << dstPort;
 
 
-
-
-
-
+	std::string srcEp (srcEpStream.str());
+	std::string dstEp(dstEpStream.str());
 
 
 	std::string smallerEp;
@@ -276,17 +244,20 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 		biggerEp = srcEp;
 	}
 
-	std::string lookupKey;
+	std::stringstream lookupKeyStream;
 
-	lookupKey += smallerEp;
-	lookupKey += "<->";
-	lookupKey += biggerEp;
+	lookupKeyStream << smallerEp <<  "<->" << biggerEp;
+	std::string lookupKey (lookupKeyStream.str());
 
-	PipeMapIt it = ctrl.pipeMap.find(lookupKey);
+
 	EndpointInfo* pActiveEp;
 	EndpointInfo* pPartyEp;
 
+	PipeMapIt it = ctrl.pipeMap.find(lookupKey);
+
 	if (it!=ctrl.pipeMap.end()){
+		std::cout <<"Continue Recognizing "<<lookupKey<<std::endl;
+
 		pPipe = it->second;
 		if (srcEp == pPipe->ep1.id){
 			pActiveEp = &pPipe->ep1;
@@ -299,6 +270,8 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	}else{
 		pPipe = new Pipe();
 		pPipe->closeCount = 0;
+
+		pPipe->state = PipeState::RECOGNIZING;
 
 		pPipe->ep1.id = smallerEp;
 		pPipe->ep2.id = biggerEp;
@@ -314,16 +287,16 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 		}
 
 		ctrl.pipeMap[lookupKey] = pPipe;
+		std::cout <<"Begin Recognizing "<<lookupKey<<std::endl;
 
 	}
 
 	tcp_flags curFlags = tcp->flags;
 	tcp_flags prevFlags = pActiveEp->lastFlags;
-	pActiveEp->updateTime = time(0);
 
+	pActiveEp->updateTime = time(0);
 	pActiveEp->lastFlags = curFlags;
 	pActiveEp->everFlags.flagByte = prevFlags.flagByte | curFlags.flagByte;
-
 	pActiveEp->hasFlas = true;
 
 //	if (!pActiveEp->hasFlas){
@@ -332,6 +305,40 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 //
 //	}
 
+	if ( pActiveEp->lastFlags.flagBits.syn && !pActiveEp->lastFlags.flagBits.ack){
+		if (smallerSentTheFlags){
+			pPipe->state = PipeState::SYN_SENT;
+		}else{
+			pPipe->state = PipeState::SYN_RCVD;
+		}
+
+	}else 	if ( pActiveEp->lastFlags.flagBits.syn && pActiveEp->lastFlags.flagBits.ack){
+			pPipe->state = PipeState::ESTABLISHED;
+	}
+	else  	if ( pActiveEp->lastFlags.flagBits.fin && !pActiveEp->lastFlags.flagBits.ack){
+		if (smallerSentTheFlags){
+			if (PipeState::FIN_WAIT_1 == pPipe->state){
+				pPipe->state = PipeState::CLOSE_WAIT;
+			}else{
+				pPipe->state = PipeState::FIN_WAIT_2;
+			}
+		}else{
+			if (PipeState::FIN_WAIT_2 == pPipe->state){
+				pPipe->state = PipeState::CLOSE_WAIT;
+			}else{
+				pPipe->state = PipeState::FIN_WAIT_1;
+			}
+		}
+
+	}else  	if ( pActiveEp->lastFlags.flagBits.fin && pActiveEp->lastFlags.flagBits.ack){
+		pPipe->state =PipeState::CLOSING;
+	}
+	else
+	{
+		pPipe->state = PipeState::ESTABLISHED;
+	}
+
+	/*
 	if (
 		   pPartyEp->hasFlas
 		&& pPartyEp->everFlags.flagBits.fin
@@ -349,32 +356,9 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 			&&!pPartyEp->everFlags.flagBits.fin
 			&& pActiveEp->everFlags.flagBits.fin){
 		pPipe->state = PipeState::CLOSING;
-	}else  	if ( pActiveEp->lastFlags.flagBits.syn){
-		if (smallerSentTheFlags){
-			pPipe->state = PipeState::SYN_SENT;
-		}else{
-			pPipe->state = PipeState::SYN_RCVD;
-		}
+	}else
+	 */
 
-	}else  	if ( pActiveEp->lastFlags.flagBits.fin){
-		if (smallerSentTheFlags){
-			if (PipeState::FIN_WAIT_1 == pPipe->state){
-				pPipe->state = PipeState::CLOSE_WAIT;
-			}else{
-				pPipe->state = PipeState::FIN_WAIT_2;
-			}
-		}else{
-			if (PipeState::FIN_WAIT_2 == pPipe->state){
-				pPipe->state = PipeState::CLOSE_WAIT;
-			}else{
-				pPipe->state = PipeState::FIN_WAIT_1;
-			}
-		}
-
-	}
-	else {
-		pPipe->state = PipeState::ESTABLISHED;
-	}
 
 if (configs.PrintTcpPayload){
 	/*
@@ -386,8 +370,9 @@ if (configs.PrintTcpPayload){
 		print_payload(payload, size_payload);
 	}
 
-	PrintPipes();
 }
+
+PrintPipes(); //update connection state after each reception
 
 return;
 }
@@ -537,6 +522,7 @@ return 0;
 
 void SnifferPlatform::ClearScreen(){
 	std::cout << "\033[2J\033[1;1H";
+	system("cls");
 }
 
 
@@ -547,9 +533,43 @@ void SnifferPlatform::PrintPipes(){
 	{
 		std::string pipeKey = it->first;
 		Pipe *pPipe =  it->second;
-	    std::cout << pipeKey << " " << pPipe->state
+	    std::cout << pipeKey << " " << GetStateString(pPipe->state)
 	              << std::endl ;
 	}
 
 }
+
+
+#define VAR_NAME_HELPER(name) #name
+#define VAR_NAME(x) VAR_NAME_HELPER(x)
+
+#define CHECK_STATE_STR(x) case(x):return VAR_NAME(x);
+
+const char * SnifferPlatform::State2Str(const PipeState state)
+{
+  switch(state)
+  {
+    CHECK_STATE_STR(CLOSED);
+    CHECK_STATE_STR(LISTEN);
+    CHECK_STATE_STR(SYN_SENT);
+    CHECK_STATE_STR(SYN_RCVD);
+    CHECK_STATE_STR(ESTABLISHED);
+    CHECK_STATE_STR(CLOSE_WAIT);
+    CHECK_STATE_STR(LAST_ACK);
+    CHECK_STATE_STR(FIN_WAIT_1);
+    CHECK_STATE_STR(FIN_WAIT_2);
+    CHECK_STATE_STR(CLOSING);
+    CHECK_STATE_STR(TIME_WAIT);
+    CHECK_STATE_STR(RECOGNIZING);
+    default:
+      return "Invalid";
+  }
+}
+
+std::string SnifferPlatform::GetStateString(PipeState state){
+	const char * str = State2Str(state);
+	std::string ret (str);
+	return ret;
+}
+
 //}

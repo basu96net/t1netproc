@@ -24,6 +24,8 @@ protected:
 	CaptureControl ctrl;
 
 	void ClearScreen();
+	const char *State2Str(const PipeState state);
+	std::string  GetStateString(PipeState state);
 
 public:
 

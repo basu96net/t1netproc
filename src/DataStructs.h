@@ -139,7 +139,7 @@ typedef enum PipeState {
   FIN_WAIT_2,
   CLOSING,
   TIME_WAIT,
-  LAST_STATE
+  RECOGNIZING
 } PipeState;
 
 
@@ -150,6 +150,7 @@ typedef struct EndpointInfo{
 	tcp_flags everFlags;
 	time_t updateTime;
 	EpType epType;
+	int numBytes;
 }EndpointInfo;
 
 typedef struct Pipe{

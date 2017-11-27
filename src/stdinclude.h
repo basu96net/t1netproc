@@ -4,13 +4,14 @@
 #include <strings.h>
 
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <map>
 #include <vector>
 
 #include "winsock2.h"
 
-#include "interface.h"
+//#include "interface.h"
 
 #ifndef WPCAP
 #define WPCAP
