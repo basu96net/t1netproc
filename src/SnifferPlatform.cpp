@@ -264,14 +264,14 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 
 	Pipe* pPipe = NULL;
 
-	bool biggerReceivedTheFlags;
+	bool smallerSentTheFlags;
 	if (srcEp < dstEp){
-		biggerReceivedTheFlags = true;
+		smallerSentTheFlags = true;
 		smallerEp = srcEp;
 		biggerEp = dstEp;
 	}
 	else {
-		biggerReceivedTheFlags = false;
+		smallerSentTheFlags = false;
 		smallerEp = dstEp;
 		biggerEp = srcEp;
 	}
@@ -283,28 +283,98 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	lookupKey += biggerEp;
 
 	PipeMapIt it = ctrl.pipeMap.find(lookupKey);
+	EndpointInfo* pActiveEp;
+	EndpointInfo* pPartyEp;
 
 	if (it!=ctrl.pipeMap.end()){
 		pPipe = it->second;
+		if (srcEp == pPipe->ep1.id){
+			pActiveEp = &pPipe->ep1;
+			pPartyEp = &pPipe->ep2;
+		}else if (srcEp == pPipe->ep2.id){
+			pActiveEp = &pPipe->ep2;
+			pPartyEp = &pPipe->ep1;
+		}
+
 	}else{
 		pPipe = new Pipe();
 		pPipe->closeCount = 0;
+
 		pPipe->ep1.id = smallerEp;
-		pPipe->ep1.updateTime = 0;
-		pPipe->ep1.lastFlags.flagByte = 0;
 		pPipe->ep2.id = biggerEp;
-		pPipe->ep2.updateTime = 0;
-		pPipe->ep2.lastFlags.flagByte = 0;
+
+		if (smallerSentTheFlags){
+			pActiveEp = &pPipe->ep1;
+			pPartyEp = &pPipe->ep2;
+
+		}else{
+			pActiveEp = &pPipe->ep2;
+			pPartyEp = &pPipe->ep1;
+
+		}
+
 		ctrl.pipeMap[lookupKey] = pPipe;
+
 	}
-	Pipe* dstPipe = NULL;
 
+	tcp_flags curFlags = tcp->flags;
+	tcp_flags prevFlags = pActiveEp->lastFlags;
+	pActiveEp->updateTime = time(0);
 
-	//sprintf("%s", srcEp.c_str(), )
+	pActiveEp->lastFlags = curFlags;
+	pActiveEp->everFlags.flagByte = prevFlags.flagByte | curFlags.flagByte;
 
-//	if (tcp->flags.ack ){
+	pActiveEp->hasFlas = true;
+
+//	if (!pActiveEp->hasFlas){
+//
+//	}else{
 //
 //	}
+
+	if (
+		   pPartyEp->hasFlas
+		&& pPartyEp->everFlags.flagBits.fin
+		&& pPartyEp->lastFlags.flagBits.ack
+		&& pActiveEp->lastFlags.flagBits.ack
+		&& pActiveEp->everFlags.flagBits.fin)
+	{
+	   //complete dual side closure - reset flags an increase count
+	   pPipe->closeCount++;
+	   pPipe->state = PipeState::CLOSED;
+	   pActiveEp->everFlags.flagByte = 0;
+	   pPartyEp->everFlags.flagByte =0;
+	}else 	if (
+			   pPartyEp->hasFlas
+			&&!pPartyEp->everFlags.flagBits.fin
+			&& pActiveEp->everFlags.flagBits.fin){
+		pPipe->state = PipeState::CLOSING;
+	}else  	if ( pActiveEp->lastFlags.flagBits.syn){
+		if (smallerSentTheFlags){
+			pPipe->state = PipeState::SYN_SENT;
+		}else{
+			pPipe->state = PipeState::SYN_RCVD;
+		}
+
+	}else  	if ( pActiveEp->lastFlags.flagBits.fin){
+		if (smallerSentTheFlags){
+			if (PipeState::FIN_WAIT_1 == pPipe->state){
+				pPipe->state = PipeState::CLOSE_WAIT;
+			}else{
+				pPipe->state = PipeState::FIN_WAIT_2;
+			}
+		}else{
+			if (PipeState::FIN_WAIT_2 == pPipe->state){
+				pPipe->state = PipeState::CLOSE_WAIT;
+			}else{
+				pPipe->state = PipeState::FIN_WAIT_1;
+			}
+		}
+
+	}
+	else {
+		pPipe->state = PipeState::ESTABLISHED;
+	}
 
 if (configs.PrintTcpPayload){
 	/*
@@ -315,6 +385,8 @@ if (configs.PrintTcpPayload){
 		printf("   Payload (%d bytes):\n", size_payload);
 		print_payload(payload, size_payload);
 	}
+
+	PrintPipes();
 }
 
 return;
@@ -330,7 +402,7 @@ int SnifferPlatform::mainSniffex(int argc, char** argv)
 	char errbuf[PCAP_ERRBUF_SIZE];		/* error buffer */
 	pcap_t *handle;				/* packet capture handle */
 
-	char filter_exp[] = "tcp";		/* filter expression [3] */
+	char filter_exp[] = "ip and tcp";		/* filter expression [3] */
 	struct bpf_program fp;			/* compiled filter program (expression) */
 	bpf_u_int32 mask;			/* subnet mask */
 	bpf_u_int32 net;			/* ip */
@@ -462,4 +534,22 @@ int SnifferPlatform::mainSniffex(int argc, char** argv)
 return 0;
 }
 
+
+void SnifferPlatform::ClearScreen(){
+	std::cout << "\033[2J\033[1;1H";
+}
+
+
+void SnifferPlatform::PrintPipes(){
+	ClearScreen();
+
+	for (PipeMapIt it = ctrl.pipeMap.begin(); it != ctrl.pipeMap.end(); it++ )
+	{
+		std::string pipeKey = it->first;
+		Pipe *pPipe =  it->second;
+	    std::cout << pipeKey << " " << pPipe->state
+	              << std::endl ;
+	}
+
+}
 //}

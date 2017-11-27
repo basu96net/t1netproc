@@ -22,10 +22,12 @@
 class SnifferPlatform{
 protected:
 	CaptureControl ctrl;
-	std::map<std::string, int> endPointMap;
+
+	void ClearScreen();
 
 public:
 
+	void PrintPipes();
 void
 print_payload(const u_char *payload, int len);
 

@@ -145,6 +145,7 @@ typedef enum PipeState {
 
 typedef struct EndpointInfo{
 	std::string id;
+	bool hasFlas;
 	tcp_flags lastFlags;
 	tcp_flags everFlags;
 	time_t updateTime;
