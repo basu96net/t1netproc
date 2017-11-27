@@ -65,8 +65,13 @@
 							<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.2143513418" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 						</tool>
 					</fileInfo>
+					<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.debug.1208931781.274550647" name="temp.cpp" rcbsApplicability="disable" resourcePath="src/temp.txt" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.debug.640647981.310127794">
+						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.debug.640647981.310127794" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.debug.640647981">
+							<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.334861266" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
+						</tool>
+					</fileInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="temp.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -129,8 +134,13 @@
 							<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.1196993965" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
 						</tool>
 					</fileInfo>
+					<fileInfo id="cdt.managedbuild.config.gnu.mingw.exe.release.1158453295.1706950513" name="temp.cpp" rcbsApplicability="disable" resourcePath="src/temp.txt" toolsToInvoke="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.release.1574685964.2095951097">
+						<tool id="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.release.1574685964.2095951097" name="GCC C++ Compiler" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.mingw.exe.release.1574685964">
+							<inputType id="cdt.managedbuild.tool.gnu.cpp.compiler.input.416551035" superClass="cdt.managedbuild.tool.gnu.cpp.compiler.input"/>
+						</tool>
+					</fileInfo>
 					<sourceEntries>
-						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="temp.cpp" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>

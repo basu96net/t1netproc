@@ -190,8 +190,11 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	}
 
 	/* print source and destination IP addresses */
-	printf("       From: %s\n", inet_ntoa(ip->ip_src));
-	printf("         To: %s\n", inet_ntoa(ip->ip_dst));
+	char* srcAddr = inet_ntoa(ip->ip_src);
+	char* dstAddr = inet_ntoa(ip->ip_dst);
+
+	printf("       From: %s\n", srcAddr);
+	printf("         To: %s\n",dstAddr);
 
 	/* determine protocol */
 	switch(ip->ip_p) {
@@ -224,8 +227,11 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 		return;
 	}
 
-	printf("   Src port: %d\n", ntohs(tcp->th_sport));
-	printf("   Dst port: %d\n", ntohs(tcp->th_dport));
+	u_short srcPort = ntohs(tcp->th_sport);
+	u_short dstPort = ntohs(tcp->th_dport);
+
+	printf("   Src port: %d\n", srcPort);
+	printf("   Dst port: %d\n", dstPort);
 
 	/* define/compute tcp payload (segment) offset */
 	payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
@@ -233,14 +239,74 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	/* compute tcp payload (segment) size */
 	size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
 
-	//std::string str;
+	std::string srcEp;
+	std::string dstEp;
 
+	srcEp+= srcAddr;
+	srcEp+=":";
+	srcEp+= srcPort;
+
+
+	dstEp+= dstAddr;
+	dstEp+=":";
+	dstEp+= dstPort;
+
+
+
+
+
+
+
+
+	std::string smallerEp;
+	std::string biggerEp;
+
+
+	Pipe* pPipe = NULL;
+
+	bool biggerReceivedTheFlags;
+	if (srcEp < dstEp){
+		biggerReceivedTheFlags = true;
+		smallerEp = srcEp;
+		biggerEp = dstEp;
+	}
+	else {
+		biggerReceivedTheFlags = false;
+		smallerEp = dstEp;
+		biggerEp = srcEp;
+	}
+
+	std::string lookupKey;
+
+	lookupKey += smallerEp;
+	lookupKey += "<->";
+	lookupKey += biggerEp;
+
+	PipeMapIt it = ctrl.pipeMap.find(lookupKey);
+
+	if (it!=ctrl.pipeMap.end()){
+		pPipe = it->second;
+	}else{
+		pPipe = new Pipe();
+		pPipe->closeCount = 0;
+		pPipe->ep1.id = smallerEp;
+		pPipe->ep1.updateTime = 0;
+		pPipe->ep1.lastFlags.flagByte = 0;
+		pPipe->ep2.id = biggerEp;
+		pPipe->ep2.updateTime = 0;
+		pPipe->ep2.lastFlags.flagByte = 0;
+		ctrl.pipeMap[lookupKey] = pPipe;
+	}
+	Pipe* dstPipe = NULL;
+
+
+	//sprintf("%s", srcEp.c_str(), )
 
 //	if (tcp->flags.ack ){
 //
 //	}
 
-if (configs.UseCompiledFilter){
+if (configs.PrintTcpPayload){
 	/*
 	 * Print payload data; it might be binary, so don't just
 	 * treat it as a string.
@@ -264,7 +330,7 @@ int SnifferPlatform::mainSniffex(int argc, char** argv)
 	char errbuf[PCAP_ERRBUF_SIZE];		/* error buffer */
 	pcap_t *handle;				/* packet capture handle */
 
-	char filter_exp[] = "ip and tcp";		/* filter expression [3] */
+	char filter_exp[] = "tcp";		/* filter expression [3] */
 	struct bpf_program fp;			/* compiled filter program (expression) */
 	bpf_u_int32 mask;			/* subnet mask */
 	bpf_u_int32 net;			/* ip */

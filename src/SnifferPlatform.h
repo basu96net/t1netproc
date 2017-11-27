@@ -20,6 +20,9 @@
 
 
 class SnifferPlatform{
+protected:
+	CaptureControl ctrl;
+	std::map<std::string, int> endPointMap;
 
 public:
 

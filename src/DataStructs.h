@@ -59,7 +59,7 @@ struct sniff_ip {
 /* TCP header */
 typedef u_int tcp_seq;
 
-union tcp_flags{
+typedef struct tcp_flags_bits{
 
     u_char fin :1; //Finish Flag
     u_char syn :1; //Synchronise Flag
@@ -71,8 +71,12 @@ union tcp_flags{
     u_char ecn :1; //ECN-Echo Flag
     u_char cwr :1; //Congestion Window Reduced Flag
 
-};
+}tcp_flags_bits;
 
+typedef union tcp_flags{
+	tcp_flags_bits flagBits;
+	u_char flagByte;
+}tcp_flags;
 /* UDP header*/
 typedef struct udp_header
 {
@@ -98,7 +102,7 @@ typedef struct sniff_tcp {
         The length of the TCP header is always a multiple
         of 32 bits.*/
 #define TH_OFF(th)      (((th)->th_offx2 & 0x0f))
-    u_char  th_flags;
+
     #define TH_FIN  0x01
     #define TH_SYN  0x02
     #define TH_RST  0x04
@@ -110,11 +114,18 @@ typedef struct sniff_tcp {
     #define TH_FLAGS        (TH_FIN|TH_SYN|TH_RST|TH_ACK|TH_URG|TH_ECE|TH_CWR)
 
         tcp_flags flags;
+
         u_short th_win;                 /* window */
         u_short th_sum;                 /* checksum */
         u_short th_urp;                 /* urgent pointer */
 }sniff_tcp;
 
+
+typedef enum EpType {
+  Unknown = 0,
+  Server,
+  Client
+} EpType;
 
 typedef enum PipeState {
   CLOSED = 0,
@@ -131,16 +142,28 @@ typedef enum PipeState {
   LAST_STATE
 } PipeState;
 
+
+typedef struct EndpointInfo{
+	std::string id;
+	tcp_flags lastFlags;
+	tcp_flags everFlags;
+	time_t updateTime;
+	EpType epType;
+}EndpointInfo;
+
 typedef struct Pipe{
-	std::string pipeName;
-	tcp_flags s2d;
-	tcp_flags d2s;
+	EndpointInfo ep1;
+	EndpointInfo ep2;
 	PipeState state;
 	int closeCount;
 }Pipe;
 
+typedef std::map <std::string , Pipe*> PipeMap;
+typedef PipeMap::iterator PipeMapIt;
+
 typedef struct CaptureControl{
-	std::map <std::string , Pipe&> m;
+	PipeMap pipeMap;
+	std::vector <Pipe> pipes;
 }CaptureControl;
 
 //typedef std::hashma PipeList;
