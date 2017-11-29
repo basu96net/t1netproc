@@ -50,7 +50,8 @@ struct sniff_ip {
         u_char  ip_ttl;                 /* time to live */
         u_char  ip_p;                   /* protocol */
         u_short ip_sum;                 /* checksum */
-        struct  in_addr ip_src,ip_dst;  /* source and dest address */
+        struct  in_addr ip_src;			 /* source  address */
+        struct  in_addr ip_dst;  /* dest address */
         //begin of options
 };
 #define IP_HL(ip)               (((ip)->ip_vhl) & 0x0f)

@@ -1,61 +1,11 @@
 #include "SnifferPlatform.h"
 
-SnifferPlatform *  pPlt;
-
-int TcpRecognizer(int argc, char** argv){
-
-	SnifferPlatform plt;
-	pPlt = &plt;
-	return plt.mainSniffex(argc , argv);
-}
-void
-UpdateConnectionTableCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet){
- pPlt->UpdateConnectionTable(args, header, packet);
-}
+extern void
+UpdateConnectionTableCallback(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 
 
-//void
-//print_payload(const u_char *payload, int len);
-//
-//void
-//print_hex_ascii_line(const u_char *payload, int len, int offset);
-//
-//void
-//print_app_banner(void);
-//
-//void
-//print_app_usage(void);
 
-/*
- * app name/banner
- */
-void
-SnifferPlatform::print_app_banner(void)
-{
 
-//	printf("%s - %s\n", APP_NAME, APP_DESC);
-//	printf("%s\n", APP_COPYRIGHT);
-//	printf("%s\n", APP_DISCLAIMER);
-//	printf("\n");
-
-return;
-}
-
-/*
- * print help text
- */
-void
-SnifferPlatform::print_app_usage(void)
-{
-
-	//printf("Usage: %s [interface]\n", APP_NAME);
-	printf("\n");
-	printf("Options:\n");
-	printf("    interface    Listen on <interface> for packets.\n");
-	printf("\n");
-
-return;
-}
 
 /*
  * print data in rows of 16 bytes: offset   hex   ascii
@@ -156,6 +106,22 @@ return;
 }
 
 
+
+std::stringstream printMacToStream(const u_char MACData[])
+{
+	std::stringstream os;
+
+    char oldFill = os.fill('0');
+
+    os  << std::hex << static_cast<unsigned int>(MACData[0]);
+    for (u_int i = 1; i < 6; ++i) {
+        os << '-' <<  std::hex << static_cast<unsigned int>(MACData[i]);
+    }
+
+    os.fill(oldFill);
+    return os;
+}
+
 /*
  * dissect/print packet
  */
@@ -163,7 +129,8 @@ void
 SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
 
-	static int count = 1;                   /* packet counter */
+
+	static int count = 0;                   /* packet counter */
 
 	/* declare pointers to packet headers */
 	const struct sniff_ethernet *ethernet;  /* The ethernet header [1] */
@@ -175,10 +142,9 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	int size_tcp;
 	int size_payload;
 
-	printf("\nPacket number %d:\n", count);
 	count++;
 
-	/* define ethernet header */
+	/* define Ethernet header */
 	ethernet = (struct sniff_ethernet*)(packet);
 
 	/* define/compute ip header offset */
@@ -188,10 +154,20 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 		printf("   * Invalid IP header length: %u bytes\n", size_ip);
 		return;
 	}
+	std::stringstream srcAddr;
+	std::stringstream dstAddr;
 
-	/* print source and destination IP addresses */
-	char* srcAddr = inet_ntoa(ip->ip_src);
-	char* dstAddr = inet_ntoa(ip->ip_dst);
+	srcAddr << inet_ntoa(ip->ip_src);
+	dstAddr << inet_ntoa(ip->ip_dst);
+
+
+
+	std::cout<<"src="<<srcAddr.str()
+			<<" ["
+			<<printMacToStream(ethernet->ether_shost).str()<<"]"
+			<<" dst="<<dstAddr.str()
+			<<" ["<<printMacToStream(ethernet->ether_dhost).str()<<"]"
+			<<std::endl;
 
 	if (IPPROTO_TCP != ip->ip_p )
 		return;
@@ -204,90 +180,99 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 		return;
 	}
 
-	u_short srcPort = ntohs(tcp->th_sport);
-	u_short dstPort = ntohs(tcp->th_dport);
-
-
-	/* define/compute tcp payload (segment) offset */
-	payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
-
-	/* compute tcp payload (segment) size */
-	size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
-
-	std::stringstream srcEpStream;
-	std::stringstream dstEpStream;
-
-	srcEpStream << srcAddr << ":" << srcPort;
-
-	dstEpStream << dstAddr << ":" << dstPort;
-
-
-	std::string srcEp (srcEpStream.str());
-	std::string dstEp(dstEpStream.str());
-
-
 	std::string smallerEp;
 	std::string biggerEp;
+	bool smallerSentTheFlags;
+
+	{
+		u_short srcPort = ntohs(tcp->th_sport);
+		u_short dstPort = ntohs(tcp->th_dport);
+
+
+		/* define/compute tcp payload (segment) offset */
+		payload = (u_char *)(packet + SIZE_ETHERNET + size_ip + size_tcp);
+
+		/* compute tcp payload (segment) size */
+		size_payload = ntohs(ip->ip_len) - (size_ip + size_tcp);
+
+		std::stringstream srcEpStream;
+		std::stringstream dstEpStream;
+
+		srcEpStream << srcAddr.str() << ":" << srcPort;
+
+		dstEpStream << dstAddr.str() << ":" << dstPort;
+
+
+		std::string srcEp (srcEpStream.str());
+		std::string dstEp(dstEpStream.str());
+
+
+
+
+
+
+
+
+		if (srcEp < dstEp){
+			smallerSentTheFlags = true;
+			smallerEp = srcEp;
+			biggerEp = dstEp;
+		}
+		else {
+			smallerSentTheFlags = false;
+			smallerEp = dstEp;
+			biggerEp = srcEp;
+		}
+	}
+
+
+
+	std::stringstream lookupKeyStream;
+	lookupKeyStream << smallerEp <<"\t<->\t" << biggerEp;
+
+	std::string lookupKey (lookupKeyStream.str());
+	std::cout<<"Lookup:"<<lookupKey<<" smaller:"<<smallerSentTheFlags;
 
 
 	Pipe* pPipe = NULL;
-
-	bool smallerSentTheFlags;
-	if (srcEp < dstEp){
-		smallerSentTheFlags = true;
-		smallerEp = srcEp;
-		biggerEp = dstEp;
-	}
-	else {
-		smallerSentTheFlags = false;
-		smallerEp = dstEp;
-		biggerEp = srcEp;
-	}
-
-	std::stringstream lookupKeyStream;
-
-	lookupKeyStream << smallerEp <<  "<->" << biggerEp;
-	std::string lookupKey (lookupKeyStream.str());
-
-
 	EndpointInfo* pActiveEp;
 	EndpointInfo* pPartyEp;
+	{
+		PipeMapIt it = ctrl.pipeMap.find(lookupKey);
 
-	PipeMapIt it = ctrl.pipeMap.find(lookupKey);
+		if (it!=ctrl.pipeMap.end()){
+			//std::cout <<"Continue Recognizing "<<lookupKey<<std::endl;
 
-	if (it!=ctrl.pipeMap.end()){
-		std::cout <<"Continue Recognizing "<<lookupKey<<std::endl;
-
-		pPipe = it->second;
-		if (srcEp == pPipe->ep1.id){
-			pActiveEp = &pPipe->ep1;
-			pPartyEp = &pPipe->ep2;
-		}else if (srcEp == pPipe->ep2.id){
-			pActiveEp = &pPipe->ep2;
-			pPartyEp = &pPipe->ep1;
-		}
-
-	}else{
-		pPipe = new Pipe();
-		pPipe->closeCount = 0;
-
-		pPipe->state = PipeState::RECOGNIZING;
-
-		pPipe->ep1.id = smallerEp;
-		pPipe->ep2.id = biggerEp;
-
-		if (smallerSentTheFlags){
-			pActiveEp = &pPipe->ep1;
-			pPartyEp = &pPipe->ep2;
+			pPipe = it->second;
+			if (smallerSentTheFlags){
+				pActiveEp = &pPipe->ep1;
+				pPartyEp = &pPipe->ep2;
+			}else { /* source endpoint in ip datagram is the second stored item in pipe */
+				pActiveEp = &pPipe->ep2;
+				pPartyEp = &pPipe->ep1;
+			}
 
 		}else{
-			pActiveEp = &pPipe->ep2;
-			pPartyEp = &pPipe->ep1;
+			pPipe = new Pipe();
+			pPipe->closeCount = 0;
 
+			pPipe->state = PipeState::RECOGNIZING;
+
+			pPipe->ep1.id = smallerEp;
+			pPipe->ep2.id = biggerEp;
+
+			if (smallerSentTheFlags){
+				pActiveEp = &pPipe->ep1;
+				pPartyEp = &pPipe->ep2;
+
+			}else{
+				pActiveEp = &pPipe->ep2;
+				pPartyEp = &pPipe->ep1;
+
+			}
 		}
-
 		ctrl.pipeMap[lookupKey] = pPipe;
-		std::cout <<"Begin Recognizing "<<lookupKey<<std::endl;
+		//std::cout <<"Begin Recognizing "<<lookupKey<<std::endl;
 
 	}
 
@@ -299,11 +284,7 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 	pActiveEp->everFlags.flagByte = prevFlags.flagByte | curFlags.flagByte;
 	pActiveEp->hasFlas = true;
 
-//	if (!pActiveEp->hasFlas){
-//
-//	}else{
-//
-//	}
+
 
 	if ( pActiveEp->lastFlags.flagBits.syn && !pActiveEp->lastFlags.flagBits.ack){
 		if (smallerSentTheFlags){
@@ -331,33 +312,13 @@ SnifferPlatform::UpdateConnectionTable(u_char *args, const struct pcap_pkthdr *h
 		}
 
 	}else  	if ( pActiveEp->lastFlags.flagBits.fin && pActiveEp->lastFlags.flagBits.ack){
-		pPipe->state =PipeState::CLOSING;
+		pPipe->state =PipeState::CLOSED;
 	}
 	else
 	{
 		pPipe->state = PipeState::ESTABLISHED;
 	}
 
-	/*
-	if (
-		   pPartyEp->hasFlas
-		&& pPartyEp->everFlags.flagBits.fin
-		&& pPartyEp->lastFlags.flagBits.ack
-		&& pActiveEp->lastFlags.flagBits.ack
-		&& pActiveEp->everFlags.flagBits.fin)
-	{
-	   //complete dual side closure - reset flags an increase count
-	   pPipe->closeCount++;
-	   pPipe->state = PipeState::CLOSED;
-	   pActiveEp->everFlags.flagByte = 0;
-	   pPartyEp->everFlags.flagByte =0;
-	}else 	if (
-			   pPartyEp->hasFlas
-			&&!pPartyEp->everFlags.flagBits.fin
-			&& pActiveEp->everFlags.flagBits.fin){
-		pPipe->state = PipeState::CLOSING;
-	}else
-	 */
 
 
 if (configs.PrintTcpPayload){
@@ -372,7 +333,7 @@ if (configs.PrintTcpPayload){
 
 }
 
-PrintPipes(); //update connection state after each reception
+//PrintPipes(); //update connection state after each reception
 
 return;
 }
@@ -380,20 +341,24 @@ return;
 //int mainSniffex(int argc, char* argv[]);
 //}
 
-int SnifferPlatform::mainSniffex(int argc, char** argv)
+
+int SnifferPlatform::StarTcpRegnizer(int argc, char** argv)
 {
+
+
+
 
 	char *devName = NULL;			/* capture device name */
 	char errbuf[PCAP_ERRBUF_SIZE];		/* error buffer */
 	pcap_t *handle;				/* packet capture handle */
 
-	char filter_exp[] = "ip and tcp";		/* filter expression [3] */
+	char filter_exp[] = "tcp";		/* filter expression [3] */
 	struct bpf_program fp;			/* compiled filter program (expression) */
 	bpf_u_int32 mask;			/* subnet mask */
 	bpf_u_int32 net;			/* ip */
 	int num_packets = configs.CaptureLoopQueue;			/* number of packets to capture */
 
-	print_app_banner();
+
 
 	/* check for capture device name on command-line */
 	if (argc == 2) {
@@ -401,7 +366,6 @@ int SnifferPlatform::mainSniffex(int argc, char** argv)
 	}
 	else if (argc > 2) {
 		fprintf(stderr, "error: unrecognized command-line options\n\n");
-		print_app_usage();
 		exit(EXIT_FAILURE);
 	}
 	else {
@@ -414,12 +378,11 @@ int SnifferPlatform::mainSniffex(int argc, char** argv)
 		}
 		pcap_if_t *alldevs;
 		pcap_if_t *dev;
+
 		int inum;
 		int i=0;
-//		pcap_t *adhandle;
-//		char errbuf[PCAP_ERRBUF_SIZE];
-//		u_int netmask;
-//		char packet_filter[] = "ip and (tcp or udp)";
+
+
 		struct bpf_program fcode;
 
 		/* Retrieve the device list */
@@ -473,9 +436,9 @@ int SnifferPlatform::mainSniffex(int argc, char** argv)
 	}
 
 	/* print capture info */
-	printf("Device: %s\n", devName);
-	printf("Number of packets: %d\n", num_packets);
-	printf("Filter expression: %s\n", filter_exp);
+//	printf("Device: %s\n", devName);
+//	printf("Number of packets: %d\n", num_packets);
+//	printf("Filter expression: %s\n", filter_exp);
 
 	/* open capture device */
 	handle = pcap_open_live(devName, configs.MaximumSnapLengthPerPacket, 1, 1000, errbuf);
@@ -514,26 +477,31 @@ int SnifferPlatform::mainSniffex(int argc, char** argv)
 	pcap_freecode(&fp);
 	pcap_close(handle);
 
-	printf("\nCapture complete.\n");
+	std::cout <<std::endl<<"Recognition session Completed.\n"<<std::endl;
 
 return 0;
 }
 
 
 void SnifferPlatform::ClearScreen(){
-	std::cout << "\033[2J\033[1;1H";
 	system("cls");
+	std::cout << "EndPoint-1"<<"\t\t\t"<<"EndPoint-2"<<"\t\t"<<"Status"<< std::endl;
+
 }
 
 
 void SnifferPlatform::PrintPipes(){
-	ClearScreen();
+	PipeMapIt it = ctrl.pipeMap.begin();
 
-	for (PipeMapIt it = ctrl.pipeMap.begin(); it != ctrl.pipeMap.end(); it++ )
+	if (it!=ctrl.pipeMap.end()){
+		ClearScreen();
+
+	}
+	for (; it != ctrl.pipeMap.end(); it++ )
 	{
 		std::string pipeKey = it->first;
 		Pipe *pPipe =  it->second;
-	    std::cout << pipeKey << " " << GetStateString(pPipe->state)
+	    std::cout << pPipe->ep1.id <<"\t<=>"<<pPipe->ep2.id<< "\t\t" << GetStateString(pPipe->state)
 	              << std::endl ;
 	}
 
